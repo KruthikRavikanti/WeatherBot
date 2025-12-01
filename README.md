@@ -1,14 +1,14 @@
 # Daily Weather Alerts with n8n
 
-This project is a small weather alert system built on n8n:
+This project is a weather alert system built on n8n:
 
-- Users subscribe via a hosted form by entering their email and a comma-separated list of cities.
+- Users subscribe through a form by entering their email and a list of cities.
 - A scheduled workflow runs every morning, loads active subscriptions from Supabase, calls OpenWeatherMap for each city, classifies the weather into alert types, logs the run to Supabase, and sends one summary email per city via Gmail.
 
 Workflows:
 
-1. `Weather Alert Subscription` – collects user preferences and stores them in Supabase.
-2. `Daily Weather` – cron-style job that sends daily alerts and writes weather logs.
+1. Weather Alert Subscription – collects user details and stores them in Supabase.
+2. Daily Weather – cron-style job that sends daily alerts and notes them.
 
 ---
 
@@ -16,13 +16,14 @@ Workflows:
 
 ### Core
 
-- Daily scheduled alerts at 8:00 AM (Schedule/Cron node).
-- Uses OpenWeatherMap “current weather” API per city.
-- Writes each run to a `weather_logs` table in Supabase, including the raw API JSON.
+- Daily scheduled alerts at 8:00 AM (Cron node).
+- Uses OpenWeatherMap API for every city.
+- Writes each run to a weather_logs table in Supabase, including the raw API JSON.
 - Sends emails via Gmail with subject:  
   `Daily Weather for <CITY> – <YYYY-MM-DD>`
 - Email body includes:
-  - Temperature and feels-like temperature
+  - Temperature
+  - Feels-like temperature
   - Condition / description
   - Humidity
   - Wind speed
@@ -31,12 +32,10 @@ Workflows:
 
 ### Bonus
 
-- Multiple cities per user: the form accepts a comma-separated list and a Code node emits one subscription per `(email, city)`.
+- Multiple cities per user: we record one subscription per `(email, city)`.
 - Cities are configurable via the external form; no cities are hard-coded in the workflows.
-- Additional metrics: feels-like temperature and a pretty sunset time string.
-- Retry logic on key HTTP nodes (OpenWeatherMap and Supabase insert).
-- Simple rules engine using Switch/If nodes for precipitation vs. temperature-based alerts.
-- Optional subscription confirmation email for each `(email, city)` after a row is created.
+- Additional metrics: feels-like temperature and a sunset time.
+- Retry logic on key HTTP nodes (OpenWeatherMap and Supabase insert) at 3 times max every 5 seconds.
 
 ---
 
@@ -45,12 +44,10 @@ Workflows:
 ### OpenWeatherMap
 
 1. Create an OpenWeatherMap account and generate an API key.
-2. Open the `Daily Weather` workflow in n8n.
-3. In the `OpenWeatherMap Request` node, set:
+2. Open the Daily Weather workflow in n8n.
+3. In the OpenWeatherMap Request node, set:
    - Query parameter `appid` to your API key.
    - Query parameter `units` to `imperial` (for °F).
-
-(If you prefer, store the key in an environment variable or n8n credential and reference it via an expression.)
 
 ### Supabase
 
@@ -66,8 +63,6 @@ Workflows:
      - `Content-Type`: `application/json`
      - For inserts: `Prefer`: `return=representation`
 
-Remove real keys from exported JSON before sharing the workflows publicly.
-
 ---
 
 ## 2. Supabase Details
@@ -75,10 +70,6 @@ Remove real keys from exported JSON before sharing the workflows publicly.
 You need two tables: `weather_subscriptions` and `weather_logs`.
 
 ### Table: `weather_subscriptions`
-
-Used by the subscription workflow to store which user wants which city.
-
-Suggested schema:
 
 | Column       | Type        | Notes                                      |
 |--------------|------------|--------------------------------------------|
@@ -88,13 +79,7 @@ Suggested schema:
 | active       | boolean    | Default `true`                             |
 | created_at   | timestamptz| Default `now()`                             |
 
-The `Create Weather Subscription (Supabase)` node inserts one row per `(email, city)`.
-
 ### Table: `weather_logs`
-
-Used by the daily workflow to log each weather check.
-
-Suggested schema:
 
 | Column           | Type        | Notes                                      |
 |------------------|------------|--------------------------------------------|
@@ -110,8 +95,6 @@ Suggested schema:
 | sunset_time      | text       | Local sunset time (formatted)             |
 | alert_type       | text       | `precipitation`, `heat`, `frost`, `none`  |
 | raw_response     | jsonb      | Full OpenWeatherMap JSON payload          |
-
-The `Insert Weather Log (Supabase)` node writes these fields for each city and run.
 
 ---
 
