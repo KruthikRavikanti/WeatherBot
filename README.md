@@ -104,9 +104,7 @@ Both workflows share the same Gmail OAuth2 credential.
 
 ### Gmail credential
 
-1. In n8n, go to `Credentials → New → Gmail OAuth2`.
-2. Follow the OAuth flow to connect your Gmail / Google Workspace account.
-3. Give the credential a name such as `Gmail account`.
+In n8n, go to `Credentials → New → Gmail OAuth2` and follow to connect your Gmail / Google Workspace account.
 
 Gmail usage:
 
