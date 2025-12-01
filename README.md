@@ -28,7 +28,8 @@ Workflows:
   - Humidity
   - Wind speed
   - Local sunset time (formatted string)
-  - Alert type: `PRECIPITATION`, `HEAT`, `FROST`, or `NONE`
+  - Alert type: (PRECIPITATION, HEAT, FROST, or NONE)
+
 
 ### Bonus
 
@@ -85,7 +86,7 @@ weather_logs
 | run_at           | timestamptz| Default `now()`                            |
 | city             | text       | City name                                  |
 | temperature      | float8     | Current temperature (°F)                   |
-| temperature_unit | text       | e.g. `"F"`                                 |
+| temperature_unit | text       | `"F"`                                 |
 | feels_like       | float8     | Feels-like temperature (°F)                |
 | condition        | text       | Weather description                        |
 | humidity         | int        | Humidity (%)                               |
@@ -106,11 +107,8 @@ In n8n, go to New Gmail OAuth2 and follow to connect your Gmail / Google Workspa
 
 Gmail usage:
 
-- `Send Confirmation Email` (subscription workflow) sends a simple “you’re subscribed” message for each `(email, city)`.
-- `Send Daily Weather Email` (daily workflow) sends the daily summary:
-  - `To` is set from the subscription item’s `email`.
-  - `Subject` uses `Daily Weather for <CITY> – <DATE>`.
-  - `Message` uses the `summary` field built earlier in the workflow.
+- Confirmation Email is a simple “you’re subscribed” message for each city.
+- Daily Weather Email sends the daily summary.
 
 ---
 
@@ -128,10 +126,7 @@ Gmail usage:
 
 ### Configure the schedule
 
-In the `Daily Weather` workflow:
-
-- The `Schedule Trigger` node is set to run once a day at 8:00 AM. Adjust the hour/minute if needed.
-- Turn the workflow to Active so the schedule actually fires.
+In the Daily Weather workflow, the Cron node is set to run once a day at 8:00 AM. Adjust the hour/minute if needed. Turn the workflow to Active so the schedule actually fires.
 
 ### Test the subscription flow
 
