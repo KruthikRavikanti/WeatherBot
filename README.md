@@ -69,7 +69,7 @@ Workflows:
 
 You need two tables: `weather_subscriptions` and `weather_logs`.
 
-### Table: `weather_subscriptions`
+weather_subscriptions
 
 | Column       | Type        | Notes                                      |
 |--------------|------------|--------------------------------------------|
@@ -79,7 +79,7 @@ You need two tables: `weather_subscriptions` and `weather_logs`.
 | active       | boolean    | Default `true`                             |
 | created_at   | timestamptz| Default `now()`                             |
 
-### Table: `weather_logs`
+weather_logs
 
 | Column           | Type        | Notes                                      |
 |------------------|------------|--------------------------------------------|
@@ -104,7 +104,7 @@ Both workflows share the same Gmail OAuth2 credential.
 
 ### Gmail credential
 
-In n8n, go to `Credentials → New → Gmail OAuth2` and follow to connect your Gmail / Google Workspace account.
+In n8n, go to New Gmail OAuth2 and follow to connect your Gmail / Google Workspace account.
 
 Gmail usage:
 
