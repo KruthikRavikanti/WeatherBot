@@ -1,1 +1,202 @@
-# WeatherBot
+# Daily Weather Alerts with n8n
+
+This project is a small weather alert system built on n8n:
+
+- Users subscribe via a hosted form by entering their email and a comma-separated list of cities.
+- A scheduled workflow runs every morning, loads active subscriptions from Supabase, calls OpenWeatherMap for each city, classifies the weather into alert types, logs the run to Supabase, and sends one summary email per city via Gmail.
+
+Workflows:
+
+1. `Weather Alert Subscription` – collects user preferences and stores them in Supabase.
+2. `Daily Weather` – cron-style job that sends daily alerts and writes weather logs.
+
+---
+
+## Features
+
+### Core
+
+- Daily scheduled alerts at 8:00 AM (Schedule/Cron node).
+- Uses OpenWeatherMap “current weather” API per city.
+- Writes each run to a `weather_logs` table in Supabase, including the raw API JSON.
+- Sends emails via Gmail with subject:  
+  `Daily Weather for <CITY> – <YYYY-MM-DD>`
+- Email body includes:
+  - Temperature and feels-like temperature
+  - Condition / description
+  - Humidity
+  - Wind speed
+  - Local sunset time (formatted string)
+  - Alert type: `PRECIPITATION`, `HEAT`, `FROST`, or `NONE`
+
+### Bonus
+
+- Multiple cities per user: the form accepts a comma-separated list and a Code node emits one subscription per `(email, city)`.
+- Cities are configurable via the external form; no cities are hard-coded in the workflows.
+- Additional metrics: feels-like temperature and a pretty sunset time string.
+- Retry logic on key HTTP nodes (OpenWeatherMap and Supabase insert).
+- Simple rules engine using Switch/If nodes for precipitation vs. temperature-based alerts.
+- Optional subscription confirmation email for each `(email, city)` after a row is created.
+
+---
+
+## 1. API Setup & Key Configuration
+
+### OpenWeatherMap
+
+1. Create an OpenWeatherMap account and generate an API key.
+2. Open the `Daily Weather` workflow in n8n.
+3. In the `OpenWeatherMap Request` node, set:
+   - Query parameter `appid` to your API key.
+   - Query parameter `units` to `imperial` (for °F).
+
+(If you prefer, store the key in an environment variable or n8n credential and reference it via an expression.)
+
+### Supabase
+
+1. Create a Supabase project.
+2. Note your project URL (e.g. `https://<project-ref>.supabase.co`) and service role key.
+3. In each Supabase HTTP Request node (both workflows), set:
+   - URL to the appropriate REST endpoint:
+     - `https://<project-ref>.supabase.co/rest/v1/weather_subscriptions`
+     - `https://<project-ref>.supabase.co/rest/v1/weather_logs`
+   - Headers:
+     - `apikey`: service role key
+     - `Authorization`: `Bearer <service_role_key>`
+     - `Content-Type`: `application/json`
+     - For inserts: `Prefer`: `return=representation`
+
+Remove real keys from exported JSON before sharing the workflows publicly.
+
+---
+
+## 2. Supabase Details
+
+You need two tables: `weather_subscriptions` and `weather_logs`.
+
+### Table: `weather_subscriptions`
+
+Used by the subscription workflow to store which user wants which city.
+
+Suggested schema:
+
+| Column       | Type        | Notes                                      |
+|--------------|------------|--------------------------------------------|
+| id           | uuid       | Primary key, default `gen_random_uuid()`   |
+| email        | text       | Subscriber email, not null                 |
+| city         | text       | City name, not null                        |
+| active       | boolean    | Default `true`                             |
+| created_at   | timestamptz| Default `now()`                             |
+
+The `Create Weather Subscription (Supabase)` node inserts one row per `(email, city)`.
+
+### Table: `weather_logs`
+
+Used by the daily workflow to log each weather check.
+
+Suggested schema:
+
+| Column           | Type        | Notes                                      |
+|------------------|------------|--------------------------------------------|
+| id               | uuid       | Primary key, default `gen_random_uuid()`   |
+| run_at           | timestamptz| Default `now()`                            |
+| city             | text       | City name                                  |
+| temperature      | float8     | Current temperature (°F)                   |
+| temperature_unit | text       | e.g. `"F"`                                 |
+| feels_like       | float8     | Feels-like temperature (°F)                |
+| condition        | text       | Weather description                        |
+| humidity         | int        | Humidity (%)                               |
+| wind_speed       | float8     | Wind speed (mph)                           |
+| sunset_time      | text       | Local sunset time (formatted)             |
+| alert_type       | text       | `precipitation`, `heat`, `frost`, `none`  |
+| raw_response     | jsonb      | Full OpenWeatherMap JSON payload          |
+
+The `Insert Weather Log (Supabase)` node writes these fields for each city and run.
+
+---
+
+## 3. Email Configuration
+
+Both workflows share the same Gmail OAuth2 credential.
+
+### Gmail credential
+
+1. In n8n, go to `Credentials → New → Gmail OAuth2`.
+2. Follow the OAuth flow to connect your Gmail / Google Workspace account.
+3. Give the credential a name such as `Gmail account`.
+
+Gmail usage:
+
+- `Send Confirmation Email` (subscription workflow) sends a simple “you’re subscribed” message for each `(email, city)`.
+- `Send Daily Weather Email` (daily workflow) sends the daily summary:
+  - `To` is set from the subscription item’s `email`.
+  - `Subject` uses `Daily Weather for <CITY> – <DATE>`.
+  - `Message` uses the `summary` field built earlier in the workflow.
+
+---
+
+## 4. How to Import and Run the Workflows
+
+### Import
+
+1. In n8n, click `Workflows → Import from File`.
+2. Import `Weather Alert Subscription.json`.
+3. Import `Daily Weather.json`.
+4. In each workflow, update:
+   - Supabase URLs and headers.
+   - OpenWeatherMap API key.
+   - Gmail credential reference.
+
+### Configure the schedule
+
+In the `Daily Weather` workflow:
+
+- The `Schedule Trigger` node is set to run once a day at 8:00 AM. Adjust the hour/minute if needed.
+- Turn the workflow to Active so the schedule actually fires.
+
+### Test the subscription flow
+
+1. Open the `Weather Alert Subscription` workflow.
+2. Click the form trigger node (`Weather Subscription Form`) and open its Test/Production URL in a browser.
+3. Submit the form with:
+   - Email (your address)
+   - Cities (e.g. `Atlanta, Chicago, New York`)
+4. Check:
+   - Supabase `weather_subscriptions` has one row per city.
+   - Your inbox has one confirmation email per city.
+
+### Test the daily weather flow
+
+1. Open the `Daily Weather` workflow.
+2. Click `Execute Workflow` to run it once manually.
+3. Verify:
+   - `Load Active Subscriptions` returns one item per `(email, city)`.
+   - `OpenWeatherMap Request` succeeds for each item (retries if needed).
+   - `Set Weather Fields` has the normalized metrics and formatted sunset time.
+   - The routing nodes set the correct `alert_type` per city.
+   - `Insert Weather Log (Supabase)` writes rows into `weather_logs`.
+   - `Send Daily Weather Email` sends you one email per subscribed city.
+
+Once manual tests look good, leaving both workflows Active will keep the system running automatically.
+
+---
+
+## 5. High-Level Workflow Structure
+
+### Weather Alert Subscription
+
+- `Weather Subscription Form` – hosted form with `email` and `cities` fields.
+- `Parse Cities` – Code node that splits the comma-separated `cities` string and emits `{ email, city }` items.
+- `Create Weather Subscription (Supabase)` – inserts rows into `weather_subscriptions`.
+- `Send Confirmation Email` – optional confirmation email to the subscriber.
+
+### Daily Weather
+
+- `Schedule Trigger` – daily 8 AM trigger.
+- `Load Active Subscriptions` – reads active `(email, city)` pairs from Supabase.
+- `OpenWeatherMap Request` – fetches current weather for each city.
+- `Set Weather Fields` – extracts metrics and formats sunset time.
+- Branching nodes (`Route by Precipitation`, `IF Heat?`, `IF Frost?`) – determine the `alert_type`.
+- `Build Weather Summary` – assembles the email text.
+- `Insert Weather Log (Supabase)` – logs each run.
+- `Send Daily Weather Email` – sends the final summary email per city.
