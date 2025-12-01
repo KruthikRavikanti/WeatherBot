@@ -67,8 +67,6 @@ Workflows:
 
 ## 2. Supabase Details
 
-You need two tables: `weather_subscriptions` and `weather_logs`.
-
 weather_subscriptions
 
 | Column       | Type        | Notes                                      |
