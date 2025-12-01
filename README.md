@@ -159,25 +159,3 @@ In the `Daily Weather` workflow:
    - `Send Daily Weather Email` sends you one email per subscribed city.
 
 Once manual tests look good, leaving both workflows Active will keep the system running automatically.
-
----
-
-## 5. High-Level Workflow Structure
-
-### Weather Alert Subscription
-
-- `Weather Subscription Form` – hosted form with `email` and `cities` fields.
-- `Parse Cities` – Code node that splits the comma-separated `cities` string and emits `{ email, city }` items.
-- `Create Weather Subscription (Supabase)` – inserts rows into `weather_subscriptions`.
-- `Send Confirmation Email` – optional confirmation email to the subscriber.
-
-### Daily Weather
-
-- `Schedule Trigger` – daily 8 AM trigger.
-- `Load Active Subscriptions` – reads active `(email, city)` pairs from Supabase.
-- `OpenWeatherMap Request` – fetches current weather for each city.
-- `Set Weather Fields` – extracts metrics and formats sunset time.
-- Branching nodes (`Route by Precipitation`, `IF Heat?`, `IF Frost?`) – determine the `alert_type`.
-- `Build Weather Summary` – assembles the email text.
-- `Insert Weather Log (Supabase)` – logs each run.
-- `Send Daily Weather Email` – sends the final summary email per city.
